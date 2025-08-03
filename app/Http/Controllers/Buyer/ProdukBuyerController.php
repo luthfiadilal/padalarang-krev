@@ -24,7 +24,9 @@ class ProdukBuyerController extends Controller
             'penjual:id,nama_toko,whatsapp_link,no_hp,foto_profil,alamat', // Pastikan id termasuk
             'kategori:id,kategori',
             'tipeProduk:id,tipe_produk'
-        ])->where('status', true);
+        ])
+        ->where('status', true)
+        ->whereHas('penjual.user');
 
         if ($request->kategori) {
             $query->whereIn('kategori_id', (array) $request->kategori);

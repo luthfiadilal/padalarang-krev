@@ -43,6 +43,7 @@ class CartController extends Controller
      */
     public function store(Request $request)
     {
+        \Log::info('STORE CART HIT', $request->all());
         $request->validate([
             'produk_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',

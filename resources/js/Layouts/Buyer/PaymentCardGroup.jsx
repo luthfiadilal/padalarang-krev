@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import PaymentCard from './PaymentCard';
 
 export default function PaymentCardGroup({ transaksi, status }) {
@@ -37,6 +38,16 @@ export default function PaymentCardGroup({ transaksi, status }) {
                     <PaymentCard key={item.id} item={item} status={status} />
                 ))}
             </div>
+            {status === 'belumBayar' && (
+                <div className="mt-4 text-right">
+                    <Link
+                        href={route('transaksi.show', transaksi.id)}
+                        className="inline-block rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    >
+                        Lanjut Pembayaran
+                    </Link>
+                </div>
+            )}
         </div>
     );
 }

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Cart extends Model
 {
-     protected $table = 'carts';
+    protected $table = 'carts';
 
     protected $fillable = [
         'pembeli_id',

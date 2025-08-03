@@ -1,7 +1,5 @@
 import { router } from '@inertiajs/react';
 import React from 'react';
-import { toast } from 'react-toastify';
-import CartFooter from './CartFooter';
 import CartSellerGroup from './CartSellerGroup';
 
 export default function CartPage({ carts, onUpdateQty, onRemoveItem }) {
@@ -29,38 +27,6 @@ export default function CartPage({ carts, onUpdateQty, onRemoveItem }) {
 
     const groupedCarts = groupByPenjual(carts);
 
-    const handleCheckout = (selectedIds) => {
-        if (selectedIds.length === 0) {
-            alert('Pilih produk yang ingin dibayar!');
-            return;
-        }
-
-        router.post(
-            route('checkout'), // Pastikan route checkout sudah ditambahkan
-            { cart_ids: selectedIds },
-            {
-                onStart: () => console.log('Processing...'),
-                onSuccess: () => {
-                    toast.success(
-                        'Berhasil Checkout, silakan lakukan pembayaran',
-                        {
-                            position: 'top-right',
-                            autoClose: 3000,
-                            hideProgressBar: false,
-                            closeOnClick: true,
-                            pauseOnHover: true,
-                            draggable: true,
-                        },
-                    );
-                },
-                onError: (errors) => {
-                    console.error(errors);
-                    alert('Gagal checkout!');
-                },
-            },
-        );
-    };
-
     return (
         <div className="mx-auto max-w-7xl p-4">
             <h2 className="font-bold mb-4 text-xl">Keranjang Belanja</h2>
@@ -79,14 +45,6 @@ export default function CartPage({ carts, onUpdateQty, onRemoveItem }) {
                     <span className="font-semibold">Produk</span>
                 </div>
 
-                {/* <CartList
-                    carts={carts}
-                    selected={selected}
-                    toggleSelect={toggleSelect}
-                    onUpdateQty={onUpdateQty}
-                    onRemoveItem={onRemoveItem}
-                /> */}
-
                 {Object.entries(groupedCarts).map(([penjualId, cartsGroup]) => (
                     <CartSellerGroup
                         key={penjualId}
@@ -95,22 +53,20 @@ export default function CartPage({ carts, onUpdateQty, onRemoveItem }) {
                         toggleSelect={toggleSelect}
                         onUpdateQty={onUpdateQty}
                         onRemoveItem={onRemoveItem}
+                        onCheckoutGroup={(ids) => {
+                            // Bisa arahkan ke halaman checkout atau simpan ke state global
+                            // Arahkan ke halaman form checkout dengan parameter cart_ids
+                            if (ids.length === 0) {
+                                alert('Pilih produk terlebih dahulu!');
+                                return;
+                            }
+
+                            router.get(route('buyer.checkout.form'), {
+                                cart_ids: ids,
+                            });
+                        }}
                     />
                 ))}
-
-                <CartFooter
-                    carts={carts}
-                    selected={selected}
-                    toggleSelectAll={() =>
-                        setSelected(allSelected ? [] : carts.map((c) => c.id))
-                    }
-                    onCheckout={handleCheckout}
-                    // onRemoveSelected={() => {
-                    //     // Misalnya kamu ingin menghapus semua selected item
-                    //     selected.forEach((id) => onRemoveItem(id));
-                    //     setSelected([]); // Reset setelah hapus
-                    // }}
-                />
             </div>
         </div>
     );

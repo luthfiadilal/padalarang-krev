@@ -18,7 +18,7 @@ const CardProduk = ({ product, onClick }) => {
 
     const handleTambahKeranjang = async () => {
         try {
-            const response = await axios.post('/buyer/cart', {
+            const response = await axios.post('/cart', {
                 produk_id: product.id,
                 quantity: 1,
             });

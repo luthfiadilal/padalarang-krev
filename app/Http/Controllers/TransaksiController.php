@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\TransaksiItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Midtrans\Snap;
 
 class TransaksiController extends Controller
 {
@@ -21,8 +22,26 @@ class TransaksiController extends Controller
             abort(403, 'Akses tidak diizinkan.');
         }
 
+        $items = $transaksi->items->map(function ($item) {
+            $harga = $item->produk->harga ?? 0;
+            $qty = $item->qty ?? 0;
+
+            return [
+                'id' => $item->id,
+                'produk' => $item->produk,
+                'penjual' => $item->penjual,
+                'qty' => $qty,
+                'harga' => $harga,
+                'harga_total' => $harga * $qty,
+            ];
+        });
+
         return inertia('Buyer/Transaksi/Show', [
-            'transaksi' => $transaksi,
+            'transaksi' => [
+                    ...$transaksi->toArray(),   // konversi ke array agar bisa diubah
+                    'items' => $items,          // ganti items dengan hasil map (ada harga_total)
+                ],
+            'snap_token' => $transaksi->snap_token,
         ]);
     }
 
@@ -31,10 +50,19 @@ class TransaksiController extends Controller
         $request->validate([
             'cart_ids' => 'required|array',
             'cart_ids.*' => 'exists:carts,id',
+            'catatan' => 'nullable|string',
+            'nama_penerima' => 'required|string',
+            'telepon_penerima' => 'required|string',
+            'alamat_lengkap' => 'required|string',
+            'kelurahan' => 'required|string',
+            'kecamatan' => 'required|string',
+            'kota' => 'required|string',
+            'kode_pos' => 'required|string',
+            'jasa_pengiriman' => 'required|string',
+            'metode_pembayaran' => 'required|in:cod,transfer,qris,virtual_account',
         ]);
 
         $cartIds = $request->input('cart_ids');
-
         $carts = Cart::whereIn('id', $cartIds)
             ->where('pembeli_id', Auth::user()->pembeli->id)
             ->get();
@@ -46,20 +74,29 @@ class TransaksiController extends Controller
         DB::beginTransaction();
 
         try {
-            // Kelompokkan cart berdasarkan penjual_id
             $groupedCarts = $carts->groupBy('penjual_id');
-
             $transaksiIds = [];
 
             foreach ($groupedCarts as $penjualId => $group) {
                 $totalHarga = $group->sum('harga_total');
 
-                // Buat transaksi untuk masing-masing penjual
+                $status = $request->metode_pembayaran === 'cod' ? 'sudah bayar' : 'belum bayar';
+
                 $transaksi = Transaksi::create([
                     'pembeli_id' => Auth::user()->pembeli->id,
-                    'kode_transaksi' => Transaksi::generateKode(), // pastikan generateKode() unik
-                    'status' => 'belum bayar',
+                    'kode_transaksi' => Transaksi::generateKode(),
+                    'status' => $status,
                     'total_harga' => $totalHarga,
+                    'catatan' => $request->catatan,
+                    'nama_penerima' => $request->nama_penerima,
+                    'telepon_penerima' => $request->telepon_penerima,
+                    'alamat_lengkap' => $request->alamat_lengkap,
+                    'kelurahan' => $request->kelurahan,
+                    'kecamatan' => $request->kecamatan,
+                    'kota' => $request->kota,
+                    'kode_pos' => $request->kode_pos,
+                    'jasa_pengiriman' => $request->jasa_pengiriman,
+                    'metode_pembayaran' => $request->metode_pembayaran,
                 ]);
 
                 foreach ($group as $cart) {
@@ -73,29 +110,116 @@ class TransaksiController extends Controller
                     ]);
                 }
 
+                // Hanya buat transaksi Midtrans jika bukan COD
+                if ($request->metode_pembayaran !== 'cod' && $transaksi->isMidtrans()) {
+                    $this->createMidtransTransaction($transaksi);
+                }
+
                 $transaksiIds[] = $transaksi->id;
             }
 
-            // Hapus semua cart yang diproses
             Cart::whereIn('id', $cartIds)->delete();
-
             DB::commit();
 
-            // Kalau hanya satu transaksi, redirect langsung
             if (count($transaksiIds) === 1) {
                 return redirect()->route('transaksi.show', $transaksiIds[0])
                     ->with('success', 'Checkout berhasil! Silakan lanjut ke pembayaran.');
             }
 
-            // Jika lebih dari satu transaksi, redirect ke halaman daftar transaksi atau ringkasan
             return redirect()->route('transaksi.index')
                 ->with('success', 'Checkout berhasil untuk beberapa penjual! Silakan lanjut ke pembayaran.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Terjadi kesalahan saat memproses transaksi.');
+            return back()->with('error', 'Terjadi kesalahan saat memproses transaksi. ' . $e->getMessage());
         }
     }
+
+
+
+    public function createMidtransTransaction(Transaksi $transaksi)
+    {
+        // Ambil user + pembeli
+        $pembeli = $transaksi->pembeli;
+        $user = $pembeli->user;
+
+        // Ambil item-item transaksi
+        $items = $transaksi->items->map(function ($item) {
+            return [
+                'id' => $item->produk_id,
+                'price' => (int) $item->harga_satuan,
+                'quantity' => (int) $item->quantity,
+                'name' => $item->produk->nama,
+            ];
+        })->toArray();
+
+        // Total harga
+        $grossAmount = $transaksi->total_harga;
+
+        // Payload Midtrans
+        $payload = [
+            'transaction_details' => [
+                'order_id' => $transaksi->kode_transaksi,
+                'gross_amount' => $grossAmount,
+            ],
+            'item_details' => $items,
+            'customer_details' => [
+                'first_name' => $user->name,
+                'email' => $user->email,
+                'phone' => $pembeli->no_hp,
+                'shipping_address' => [
+                    'first_name' => $user->name,
+                    'phone' => $pembeli->no_hp,
+                    'address' => $pembeli->alamat,
+                    'city' => $pembeli->kota ?? 'Kota Tidak Diketahui',
+                    'postal_code' => $pembeli->kode_pos ?? '00000',
+                    'country_code' => 'IDN',
+                ],
+            ],
+            'expiry' => [
+                'start_time' => now()->format('Y-m-d H:i:s O'),
+                'unit' => 'hours', // gunakan 'hours' bukan 'minutes'
+                'duration' => 24,  // artinya 24 jam
+            ],
+        ];
+        \Log::info('MIDTRANS PAYLOAD', ['payload' => $payload]);
+
+
+        if (empty($items)) {
+            throw new \Exception('Item transaksi kosong');
+        }
+
+        // Buat Snap Token dari Midtrans
+        $snapToken = Snap::getSnapToken($payload);
+
+        // Simpan snap token ke transaksi
+        $transaksi->update(['snap_token' => $snapToken]);
+
+        \Log::info('MIDTRANS SNAP TOKEN', ['token' => $snapToken]);
+
+
+        return $snapToken;
+    }
+
+    public function checkoutForm(Request $request)
+    {
+        $request->validate([
+            'cart_ids' => 'present|array',
+            'cart_ids.*' => 'exists:carts,id',
+        ]);
+
+        $cartIds = $request->cart_ids;
+
+        $carts = Cart::with(['produk', 'penjual'])
+            ->whereIn('id', $cartIds)
+            ->where('pembeli_id', Auth::user()->pembeli->id)
+            ->get();
+
+        return inertia('Buyer/Checkout/Form', [
+            'carts' => $carts,
+        ]);
+    }
+
 
     public function updateStatus(Request $request, $transaksiId)
     {

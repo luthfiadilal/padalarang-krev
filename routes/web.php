@@ -10,10 +10,11 @@ use App\Http\Controllers\TokoController;
 use App\Http\Controllers\ElemenController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\KategoriController;
+use App\Http\Controllers\MidtransController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\Buyer\CartController;
-use App\Http\Controllers\Seller\ProdukController;
 
+use App\Http\Controllers\Seller\ProdukController;
 use App\Http\Controllers\Seller\DashboardController;
 use App\Http\Controllers\Buyer\ProdukBuyerController;
 use App\Http\Controllers\Auth\RegisterSellerController;
@@ -56,13 +57,15 @@ Route::middleware(['auth', 'role:buyer'])->group(function() {
     Route::get('/marketplace', [ProdukBuyerController::class, 'index'])->name('marketplace-index');
 
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');       // Halaman keranjang (Inertia)
-
+    Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
     // Route::post('/cart', [CartController::class, 'store'])->name('cart.store');      // Tambah ke keranjang
     Route::put('/cart/{id}', [CartController::class, 'update'])->name('cart.update'); // Update qty
     Route::delete('/cart/{id}', [CartController::class, 'destroy'])->name('cart.destroy'); // Hapus item
 
     Route::post('/checkout', [TransaksiController::class, 'checkout'])->name('checkout');
+    Route::get('/checkout/form', [TransaksiController::class, 'checkoutForm'])->name('buyer.checkout.form');
     Route::get('/history-buyer', [TransaksiController::class, 'history'])->name('history-buyer.index');
+    Route::get('/transaksi/{id}', [TransaksiController::class, 'show'])->name('transaksi.show');
     Route::post('/transaksi/{transaksi}/cancel', [TransaksiController::class, 'toCancel'])
     ->name('transaksi.cancel');
 
@@ -76,10 +79,6 @@ Route::middleware(['auth', 'role:buyer'])->group(function() {
             'cartCount' => $user->pembeli->carts_count ?? 0
         ]);
     })->name('developer-hub');
-});
-
-Route::middleware(['auth', 'role:buyer'])->prefix('buyer')->group(function () {
-    Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
 });
 
 
