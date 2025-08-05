@@ -31,6 +31,7 @@ class Transaksi extends Model
         'snap_token',
         'midtrans_status',
         'midtrans_response',
+        'harga_ongkir'
     ];
 
     protected $casts = [

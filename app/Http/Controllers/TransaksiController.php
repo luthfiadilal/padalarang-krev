@@ -59,7 +59,8 @@ class TransaksiController extends Controller
             'kota' => 'required|string',
             'kode_pos' => 'required|string',
             'jasa_pengiriman' => 'required|string',
-            'metode_pembayaran' => 'required|in:cod,transfer,qris,virtual_account',
+            'harga_ongkir' => 'required|numeric|min:0',
+            'metode_pembayaran' => 'required|in:cod,transfer',
         ]);
 
         $cartIds = $request->input('cart_ids');
@@ -78,7 +79,7 @@ class TransaksiController extends Controller
             $transaksiIds = [];
 
             foreach ($groupedCarts as $penjualId => $group) {
-                $totalHarga = $group->sum('harga_total');
+                $totalHarga = $group->sum('harga_total') + $request->harga_ongkir;
 
                 $status = $request->metode_pembayaran === 'cod' ? 'sudah bayar' : 'belum bayar';
 
@@ -97,6 +98,7 @@ class TransaksiController extends Controller
                     'kode_pos' => $request->kode_pos,
                     'jasa_pengiriman' => $request->jasa_pengiriman,
                     'metode_pembayaran' => $request->metode_pembayaran,
+                    'harga_ongkir' => $request->harga_ongkir,
                 ]);
 
                 foreach ($group as $cart) {
@@ -152,6 +154,15 @@ class TransaksiController extends Controller
                 'name' => $item->produk->nama,
             ];
         })->toArray();
+
+        if ($transaksi->harga_ongkir > 0) {
+            $items[] = [
+                'id' => 'ONGKIR',
+                'price' => (int) $transaksi->harga_ongkir,
+                'quantity' => 1,
+                'name' => 'Ongkos Kirim',
+            ];
+        }
 
         // Total harga
         $grossAmount = $transaksi->total_harga;

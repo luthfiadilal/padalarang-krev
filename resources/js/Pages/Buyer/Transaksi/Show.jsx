@@ -107,9 +107,17 @@ export default function Show({ transaksi, snap_token }) {
                 <h2 className="font-semibold text-lg">Informasi Pembayaran</h2>
                 <p>Metode: {transaksi.metode_pembayaran}</p>
                 <p>Status: {transaksi.status}</p>
+
                 <p>
-                    Total:{' '}
-                    <strong>Rp{transaksi.total_harga.toLocaleString()}</strong>
+                    + Ongkir: Rp
+                    {Number(transaksi.harga_ongkir).toLocaleString('id-ID')}
+                </p>
+                <p>
+                    Total Bayar:{' '}
+                    <strong>
+                        Rp
+                        {Number(transaksi.total_harga).toLocaleString('id-ID')}
+                    </strong>
                 </p>
             </div>
 

@@ -13,8 +13,14 @@ export default function CheckoutForm({ carts }) {
         kode_pos: '',
         jasa_pengiriman: '',
         metode_pembayaran: '',
+        harga_ongkir: 12000,
     });
 
+    const totalHarga = carts.reduce(
+        (sum, item) => sum + Number(item.harga_total),
+        0,
+    );
+    const totalBayar = totalHarga + Number(data.harga_ongkir || 0);
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -27,8 +33,6 @@ export default function CheckoutForm({ carts }) {
             },
         });
     };
-
-    const totalHarga = carts.reduce((sum, item) => sum + item.harga_total, 0);
 
     return (
         <div className="mx-auto max-w-3xl px-4 py-6">
@@ -62,6 +66,12 @@ export default function CheckoutForm({ carts }) {
                                     Qty: {cart.quantity} x Rp
                                     {cart.harga_satuan.toLocaleString('id-ID')}
                                 </p>
+                                <p className="text-right text-gray-700">
+                                    Ongkir: Rp
+                                    {Number(data.harga_ongkir).toLocaleString(
+                                        'id-ID',
+                                    )}
+                                </p>
                             </div>
                             <p className="font-bold">
                                 Rp{cart.harga_total.toLocaleString('id-ID')}
@@ -69,8 +79,9 @@ export default function CheckoutForm({ carts }) {
                         </li>
                     ))}
                 </ul>
-                <p className="font-bold mt-4 text-right text-lg">
-                    Total: Rp{totalHarga.toLocaleString('id-ID')}
+
+                <p className="font-bold mt-1 text-right text-lg">
+                    Total Bayar: Rp{totalBayar.toLocaleString('id-ID')}
                 </p>
             </div>
 
@@ -213,18 +224,28 @@ export default function CheckoutForm({ carts }) {
                     <label className="font-medium mb-2 block">
                         Jasa Pengiriman
                     </label>
-                    <input
+                    <select
                         className="input"
                         value={data.jasa_pengiriman}
-                        onChange={(e) =>
-                            setData('jasa_pengiriman', e.target.value)
-                        }
-                    />
-                    {errors.jasa_pengiriman && (
-                        <p className="text-sm text-red-500">
-                            {errors.jasa_pengiriman}
-                        </p>
-                    )}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setData('jasa_pengiriman', value);
+
+                            // Set harga_ongkir otomatis berdasarkan jasa
+                            if (value === 'ojek')
+                                setData('harga_ongkir', 10000);
+                            else if (value === 'kurir')
+                                setData('harga_ongkir', 12000);
+                            else if (value === 'jne')
+                                setData('harga_ongkir', 15000);
+                            else setData('harga_ongkir', 0);
+                        }}
+                    >
+                        <option value="">-- Pilih --</option>
+                        <option value="ojek">Ojek</option>
+                        <option value="kurir">Kurir Lokal</option>
+                        <option value="jne">JNE</option>
+                    </select>
                 </div>
 
                 {/* Metode Pembayaran */}

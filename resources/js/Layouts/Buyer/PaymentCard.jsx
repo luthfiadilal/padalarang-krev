@@ -2,7 +2,7 @@ import { Icon } from '@iconify/react';
 import { router } from '@inertiajs/react';
 import { Card } from 'flowbite-react';
 
-export default function PaymentCard({ item, status }) {
+export default function PaymentCard({ item, status, transaksi }) {
     const produk = item.produk;
     const kategori = produk?.kategori?.kategori || 'Tanpa Kategori';
     const tipe = produk?.tipe_produk?.tipe_produk || 'Tanpa Tipe';
@@ -78,6 +78,28 @@ export default function PaymentCard({ item, status }) {
                                     {parseInt(
                                         item.harga_total,
                                     ).toLocaleString()}
+                                </span>
+                            </p>
+
+                            {transaksi?.harga_ongkir !== undefined && (
+                                <p className="">
+                                    + Ongkir:
+                                    <span className="font-manropeSemiBold text-primary">
+                                        Rp{' '}
+                                        {Number(
+                                            transaksi.harga_ongkir,
+                                        ).toLocaleString('id-ID')}
+                                    </span>
+                                </p>
+                            )}
+
+                            <p className="">
+                                Total Bayar:
+                                <span className="font-manropeSemiBold text-primary">
+                                    Rp{' '}
+                                    {Number(
+                                        transaksi.total_harga,
+                                    ).toLocaleString('id-ID')}
                                 </span>
                             </p>
                         </div>

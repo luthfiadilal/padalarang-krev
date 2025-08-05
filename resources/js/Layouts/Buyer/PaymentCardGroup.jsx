@@ -35,7 +35,12 @@ export default function PaymentCardGroup({ transaksi, status }) {
             </div>
             <div className="space-y-4">
                 {transaksi.items.map((item) => (
-                    <PaymentCard key={item.id} item={item} status={status} />
+                    <PaymentCard
+                        key={item.id}
+                        item={item}
+                        status={status}
+                        transaksi={transaksi}
+                    />
                 ))}
             </div>
             {status === 'belumBayar' && (
