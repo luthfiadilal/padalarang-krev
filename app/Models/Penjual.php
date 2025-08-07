@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Cart;
 use App\Models\User;
+use App\Models\BuktiPembayaran;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -19,13 +20,14 @@ class Penjual extends Model
         'no_hp',
         'alamat',
         'foto_profil',
-        'jasa_pengiriman',
+        'is_active',
         'kategori_bisnis',
     ];
 
-    protected $casts = [
-        'jasa_pengiriman' => 'array',
-    ];
+    public function buktiPembayaran()
+    {
+        return $this->hasOne(BuktiPembayaran::class, 'penjual_id');
+    }
 
     public function user()
     {

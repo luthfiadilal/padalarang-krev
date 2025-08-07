@@ -84,7 +84,7 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-   public function update(Request $request)
+    public function update(Request $request)
     {
         $user = Auth::user();
 
@@ -94,6 +94,7 @@ class ProfileController extends Controller
             'no_hp' => 'nullable|string|max:20',
             'alamat' => 'nullable|string|max:255',
             'foto_profil' => 'nullable|image|max:2048', // opsional
+            'is_active' => 'required_if:role,seller|integer|in:0,1',
         ]);
 
 
@@ -119,7 +120,7 @@ class ProfileController extends Controller
                     'no_hp' => $request->no_hp,
                     'alamat' => $request->alamat,
                     'foto_profil' => $fotoProfilPath ?? $user->penjual->foto_profil ?? null,
-                    'jasa_pengiriman' => json_encode($request->jasa_pengiriman ?? []),
+                    'is_active' => $request->is_active,
                     'kategori_bisnis' => $request->kategori_bisnis,
                 ]
             ),

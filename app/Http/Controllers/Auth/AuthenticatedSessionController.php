@@ -35,7 +35,13 @@ class AuthenticatedSessionController extends Controller
         $request->session()->forget('url.intended');
 
         //  dd data user
-
+        $user = Auth::user();
+        if ($user->role === 'seller' && optional($user->penjual)->is_active != 1) {
+            Auth::logout(); // logout user langsung
+            return redirect()->route('login')->withErrors([
+                'email' => 'Akun seller Anda belum aktif. Harap tunggu verifikasi admin.',
+            ]);
+        }
 
 
         return redirect()->intended($this->redirectTo());
