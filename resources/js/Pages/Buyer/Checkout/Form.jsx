@@ -16,11 +16,6 @@ export default function CheckoutForm({ carts }) {
         harga_ongkir: 12000,
     });
 
-    const totalHarga = carts.reduce(
-        (sum, item) => sum + Number(item.harga_total),
-        0,
-    );
-    const totalBayar = totalHarga + Number(data.harga_ongkir || 0);
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -66,12 +61,6 @@ export default function CheckoutForm({ carts }) {
                                     Qty: {cart.quantity} x Rp
                                     {cart.harga_satuan.toLocaleString('id-ID')}
                                 </p>
-                                <p className="text-right text-gray-700">
-                                    Ongkir: Rp
-                                    {Number(data.harga_ongkir).toLocaleString(
-                                        'id-ID',
-                                    )}
-                                </p>
                             </div>
                             <p className="font-bold">
                                 Rp{cart.harga_total.toLocaleString('id-ID')}
@@ -79,10 +68,6 @@ export default function CheckoutForm({ carts }) {
                         </li>
                     ))}
                 </ul>
-
-                <p className="font-bold mt-1 text-right text-lg">
-                    Total Bayar: Rp{totalBayar.toLocaleString('id-ID')}
-                </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

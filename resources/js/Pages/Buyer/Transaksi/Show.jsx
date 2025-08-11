@@ -179,7 +179,7 @@ export default function Show({ transaksi, client_key, is_production }) {
                     >
                         <img
                             src={
-                                item.produk.gambar_utama_url ??
+                                item.produk.foto ??
                                 'https://placehold.co/96x96/E5E7EB/9CA3AF?text=No+Image'
                             }
                             alt={item.produk.nama}
@@ -202,7 +202,7 @@ export default function Show({ transaksi, client_key, is_production }) {
                                 )}
                             </p>
                             <p className="text-sm text-gray-500">
-                                Penjual: {item.penjual.name}
+                                Penjual: {item.penjual.nama_toko}
                             </p>
                         </div>
                     </div>
