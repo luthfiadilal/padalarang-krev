@@ -40,6 +40,9 @@ class RegisteredUserController extends Controller
             'role' => 'required|in:buyer,seller', // pastikan role dikirim
             'nama_toko' => 'required_if:role,seller|string|max:255',
             'no_hp' => 'required_if:role,seller|string|max:20',
+            'kota' => 'required_if:role,seller|string|max:255',
+            'kecamatan' => 'required_if:role,seller|string|max:255',
+            'kelurahan' => 'required_if:role,seller|string|max:255',
             'bukti_pembayaran' => [
                 'nullable',
                 'required_if:role,seller',
@@ -67,6 +70,9 @@ class RegisteredUserController extends Controller
                 'nama_toko' => $request->nama_toko,
                 'no_hp' => $no_hp,
                 'whatsapp_link' => $no_hp ? 'https://wa.me/' . $no_hp : null,
+                'kota' => $request->kota,
+                'kecamatan' => $request->kecamatan,
+                'kelurahan' => $request->kelurahan,
                 'alamat' => "",
                 'foto_profil' => "",
                 'is_active' => 0,

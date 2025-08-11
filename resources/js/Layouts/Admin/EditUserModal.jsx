@@ -12,6 +12,7 @@ export default function EditUserModal({ user, show, onClose }) {
         alamat: '',
         // khusus penjual:
         nama_toko: '',
+        is_active: 0, // Tambahan
     });
 
     useEffect(() => {
@@ -30,13 +31,17 @@ export default function EditUserModal({ user, show, onClose }) {
                 no_hp: roleData.no_hp || '',
                 alamat: roleData.alamat || '',
                 nama_toko: roleData.nama_toko || '',
+                is_active: roleData.is_active ?? 0, // Tambahan
             });
         }
     }, [show, user?.id]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setForm((prev) => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (checked ? 1 : 0) : value,
+        }));
     };
 
     const handleSubmit = (e) => {
@@ -108,6 +113,18 @@ export default function EditUserModal({ user, show, onClose }) {
                                 type="text"
                                 className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                             />
+                            {/* Status Aktif */}
+                            <label className="font-medium mb-2 mt-4 block text-sm">
+                                Status Aktif
+                            </label>
+                            <input
+                                type="checkbox"
+                                name="is_active"
+                                checked={Number(form.is_active) === 1}
+                                onChange={handleChange}
+                                className="mr-2"
+                            />{' '}
+                            Aktif
                         </>
                     )}
 

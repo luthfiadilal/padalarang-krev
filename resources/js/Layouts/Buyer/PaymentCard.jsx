@@ -60,6 +60,25 @@ export default function PaymentCard({ item, status, transaksi }) {
                                     ).toLocaleString()}
                                 </span>
                             </p>
+                            {/* ✅ Jasa Pengiriman */}
+                            {transaksi?.jasa_pengiriman && (
+                                <p>
+                                    Jasa Pengiriman:
+                                    <span className="font-manropeSemiBold text-blue-500">
+                                        {transaksi.jasa_pengiriman}
+                                    </span>
+                                </p>
+                            )}
+
+                            {/* ✅ Metode Pembayaran */}
+                            {transaksi?.metode_pembayaran && (
+                                <p>
+                                    Metode Pembayaran:
+                                    <span className="font-manropeSemiBold text-purple-500">
+                                        {transaksi.metode_pembayaran.toUpperCase()}
+                                    </span>
+                                </p>
+                            )}
                             <p className="font-manropeMedium">
                                 Harga Diskon:
                                 <span className="font-manropeSemiBold text-secondary">

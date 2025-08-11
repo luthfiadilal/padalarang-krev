@@ -9,6 +9,9 @@ export default function Edit({ user, roleData }) {
         deskripsi: roleData?.deskripsi || '',
         whatsapp_link: roleData?.whatsapp_link || '',
         no_hp: roleData?.no_hp || '',
+        kota: roleData?.kota || '',
+        kecamatan: roleData?.kecamatan || '',
+        kelurahan: roleData?.kelurahan || '',
         alamat: roleData?.alamat || '',
         foto_profil: null,
         jasa_pengiriman: roleData?.jasa_pengiriman || [],
@@ -83,16 +86,11 @@ export default function Edit({ user, roleData }) {
                                     }
                                 />
                             </div>
-                            <div className="col-span-2">
+
+                            {/* <div className="col-span-2">
                                 <Label>Jasa Pengiriman</Label>
                                 <div className="mt-2 flex flex-wrap gap-4">
-                                    {[
-                                        'JNE',
-                                        'J&T',
-                                        'Sicepat',
-                                        'AnterAja',
-                                        'POS',
-                                    ].map((jasa) => (
+                                    {['Ojek', 'Ambil di tempat'].map((jasa) => (
                                         <label
                                             key={jasa}
                                             className="flex items-center gap-2"
@@ -128,7 +126,7 @@ export default function Edit({ user, roleData }) {
                                         </label>
                                     ))}
                                 </div>
-                            </div>
+                            </div> */}
                             <div>
                                 <Label htmlFor="kategori_bisnis">
                                     Kategori Bisnis
@@ -141,6 +139,42 @@ export default function Edit({ user, roleData }) {
                                             'kategori_bisnis',
                                             e.target.value,
                                         )
+                                    }
+                                />
+                            </div>
+
+                            {/* Kota */}
+                            <div>
+                                <Label htmlFor="kota">Kota</Label>
+                                <TextInput
+                                    id="kota"
+                                    value={data.kota}
+                                    onChange={(e) =>
+                                        setData('kota', e.target.value)
+                                    }
+                                />
+                            </div>
+
+                            {/* Kecamatan */}
+                            <div>
+                                <Label htmlFor="kecamatan">Kecamatan</Label>
+                                <TextInput
+                                    id="kecamatan"
+                                    value={data.kecamatan}
+                                    onChange={(e) =>
+                                        setData('kecamatan', e.target.value)
+                                    }
+                                />
+                            </div>
+
+                            {/* Kelurahan */}
+                            <div>
+                                <Label htmlFor="kelurahan">Kelurahan</Label>
+                                <TextInput
+                                    id="kelurahan"
+                                    value={data.kelurahan}
+                                    onChange={(e) =>
+                                        setData('kelurahan', e.target.value)
                                     }
                                 />
                             </div>
@@ -162,7 +196,7 @@ export default function Edit({ user, roleData }) {
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="alamat">Alamat</Label>
+                                <Label htmlFor="alamat">Alamat Lengkap</Label>
                                 <TextInput
                                     id="alamat"
                                     value={data.alamat}

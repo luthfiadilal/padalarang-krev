@@ -14,6 +14,9 @@ export default function Register() {
         role: 'buyer',
         nama_toko: '',
         no_hp: '',
+        kota: '',
+        kecamatan: '',
+        kelurahan: '',
         bukti_pembayaran: null,
     });
 
@@ -155,6 +158,54 @@ export default function Register() {
                             />
                             <InputError
                                 message={errors.no_hp}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        {/* Kota */}
+                        <div className="mt-4">
+                            <InputLabel htmlFor="kota" value="Kota" />
+                            <TextInput
+                                id="kota"
+                                name="kota"
+                                value={data.kota || ''}
+                                className="mt-1 block w-full"
+                                onChange={handleChange}
+                            />
+                            <InputError
+                                message={errors.kota}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        {/* Kecamatan */}
+                        <div className="mt-4">
+                            <InputLabel htmlFor="kecamatan" value="Kecamatan" />
+                            <TextInput
+                                id="kecamatan"
+                                name="kecamatan"
+                                value={data.kecamatan || ''}
+                                className="mt-1 block w-full"
+                                onChange={handleChange}
+                            />
+                            <InputError
+                                message={errors.kecamatan}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        {/* Kelurahan */}
+                        <div className="mt-4">
+                            <InputLabel htmlFor="kelurahan" value="Kelurahan" />
+                            <TextInput
+                                id="kelurahan"
+                                name="kelurahan"
+                                value={data.kelurahan || ''}
+                                className="mt-1 block w-full"
+                                onChange={handleChange}
+                            />
+                            <InputError
+                                message={errors.kelurahan}
                                 className="mt-2"
                             />
                         </div>

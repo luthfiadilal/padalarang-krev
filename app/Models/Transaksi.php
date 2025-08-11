@@ -75,22 +75,22 @@ public function isCOD(): bool
 }
 
 // Apakah pembayaran menggunakan Midtrans?
-public function isMidtrans(): bool
-{
-    return in_array(strtolower($this->metode_pembayaran), ['transfer', 'qris', 'virtual_account']);
-}
+    public function isMidtrans(): bool
+    {
+        return in_array(strtolower($this->metode_pembayaran), ['transfer', 'qris', 'virtual_account']);
+    }
 
-// Apakah status Midtrans masih pending?
-public function isPendingMidtrans(): bool
-{
-    return $this->isMidtrans() && strtolower($this->midtrans_status) === 'pending';
-}
+    // Apakah status Midtrans masih pending?
+    public function isPendingMidtrans(): bool
+    {
+        return $this->isMidtrans() && strtolower($this->midtrans_status) === 'pending';
+    }
 
-// Apakah pembayaran Midtrans sudah sukses?
-public function isPaid(): bool
-{
-    return $this->isMidtrans() && strtolower($this->midtrans_status) === 'settlement';
-}
+    // Apakah pembayaran Midtrans sudah sukses?
+    public function isPaid(): bool
+    {
+        return $this->isMidtrans() && strtolower($this->midtrans_status) === 'settlement';
+    }
 
 // === Status Transaksi ===
     public function isBelumBayar(): bool

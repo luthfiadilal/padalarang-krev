@@ -160,6 +160,10 @@ export default function UserPage() {
                                                     Role
                                                 </Table.HeadCell>
                                                 <Table.HeadCell>
+                                                    Status Aktif
+                                                </Table.HeadCell>
+
+                                                <Table.HeadCell>
                                                     Aksi
                                                 </Table.HeadCell>
                                             </Table.Head>
@@ -188,6 +192,20 @@ export default function UserPage() {
                                                             <Table.Cell className="capitalize">
                                                                 {u.role}
                                                             </Table.Cell>
+
+                                                            <Table.Cell>
+                                                                {u.role ===
+                                                                'seller'
+                                                                    ? Number(
+                                                                          u
+                                                                              .penjual
+                                                                              ?.is_active,
+                                                                      ) === 1
+                                                                        ? 'Aktif'
+                                                                        : 'Non Aktif'
+                                                                    : '-'}
+                                                            </Table.Cell>
+
                                                             <Table.Cell>
                                                                 <div className="flex gap-2">
                                                                     <Button

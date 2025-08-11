@@ -9,6 +9,8 @@ use App\Models\TransaksiItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Midtrans\Snap;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class TransaksiController extends Controller
 {
@@ -17,14 +19,13 @@ class TransaksiController extends Controller
     {
         $transaksi = Transaksi::with(['items.produk', 'items.penjual'])->findOrFail($id);
 
-        // Pastikan hanya pembeli yang punya transaksi ini yang bisa melihat
         if ($transaksi->pembeli_id !== Auth::user()->pembeli->id) {
             abort(403, 'Akses tidak diizinkan.');
         }
 
         $items = $transaksi->items->map(function ($item) {
             $harga = $item->produk->harga ?? 0;
-            $qty = $item->qty ?? 0;
+            $qty = $item->quantity ?? 0; // Menggunakan 'quantity' sesuai model TransaksiItem
 
             return [
                 'id' => $item->id,
@@ -36,17 +37,41 @@ class TransaksiController extends Controller
             ];
         });
 
+        // Mengambil client key dari .env file melalui file konfigurasi
+        $client_key = config('services.midtrans.client_key');
+        // Mengambil status produksi dari .env file
+        $is_production = config('services.midtrans.is_production');
+
+        // Cek apakah snap_token sudah ada, jika belum dan metodenya bukan COD, buat snap_token baru
+        if (empty($transaksi->snap_token) && $transaksi->metode_pembayaran !== 'cod' && $transaksi->status === 'pending') {
+            try {
+                // Pastikan metode createMidtransTransaction() tersedia di kelas ini
+                $this->createMidtransTransaction($transaksi);
+                // Muat ulang transaksi untuk mendapatkan snap_token yang baru
+                $transaksi->refresh();
+            } catch (\Exception $e) {
+                \Log::error('Gagal membuat Midtrans Snap Token: ' . $e->getMessage());
+                // Kirimkan pesan error ke front-end
+                session()->flash('error', 'Gagal membuat token pembayaran. Silakan coba lagi.');
+            }
+        }
+
         return inertia('Buyer/Transaksi/Show', [
             'transaksi' => [
-                    ...$transaksi->toArray(),   // konversi ke array agar bisa diubah
-                    'items' => $items,          // ganti items dengan hasil map (ada harga_total)
-                ],
+                ...$transaksi->toArray(),
+                'items' => $items,
+            ],
             'snap_token' => $transaksi->snap_token,
+            'client_key' => $client_key,
+            'is_production' => $is_production
         ]);
     }
 
+
     public function checkout(Request $request)
     {
+        // Validasi input dari pengguna
+        // Catatan: 'harga_ongkir' dihapus dari validasi karena akan dihitung di server
         $request->validate([
             'cart_ids' => 'required|array',
             'cart_ids.*' => 'exists:carts,id',
@@ -59,30 +84,58 @@ class TransaksiController extends Controller
             'kota' => 'required|string',
             'kode_pos' => 'required|string',
             'jasa_pengiriman' => 'required|string',
-            'harga_ongkir' => 'required|numeric|min:0',
             'metode_pembayaran' => 'required|in:cod,transfer',
         ]);
 
         $cartIds = $request->input('cart_ids');
         $carts = Cart::whereIn('id', $cartIds)
             ->where('pembeli_id', Auth::user()->pembeli->id)
+            ->with(['produk', 'penjual']) // Eager load produk dan penjual untuk performa
             ->get();
 
+        // Jika tidak ada item keranjang yang valid, kembalikan dengan error
         if ($carts->isEmpty()) {
             return back()->with('error', 'Tidak ada item yang valid untuk diproses.');
         }
 
+        // Mulai database transaction untuk memastikan semua operasi berhasil atau gagal bersamaan
         DB::beginTransaction();
 
         try {
             $groupedCarts = $carts->groupBy('penjual_id');
             $transaksiIds = [];
 
+            // Proses setiap kelompok keranjang per penjual
             foreach ($groupedCarts as $penjualId => $group) {
-                $totalHarga = $group->sum('harga_total') + $request->harga_ongkir;
+                $totalBelanja = $group->sum('harga_total');
+                $ongkir = 0;
 
-                $status = $request->metode_pembayaran === 'cod' ? 'sudah bayar' : 'belum bayar';
+                // Hitung ongkir berdasarkan jasa pengiriman
+                if ($request->jasa_pengiriman !== 'ambil_di_tempat') {
+                    // Ambil koordinat penjual dari data pertama di group
+                    $penjual = $group->first()->penjual;
+                    $penjualCoord = $this->getCoordinates($penjual->kecamatan);
+                    $pembeliCoord = $this->getCoordinates($request->kecamatan);
 
+                    // Hitung jarak dan tentukan ongkir
+                    $distanceKm = $this->getDistanceKm($penjualCoord, $pembeliCoord);
+                    $ongkir = $this->calculateShippingCost($distanceKm, $request->jasa_pengiriman, $totalBelanja);
+
+                    // Jika ongkir bernilai -1, berarti ada error atau syarat tidak terpenuhi
+                    if ($ongkir === -1) {
+                        DB::rollBack();
+                        return back()->with('error', 'Total belanja minimal Rp25.000 untuk menggunakan jasa ojek.');
+                    }
+                }
+
+                // Hitung total harga transaksi
+                $totalHarga = $totalBelanja + $ongkir;
+
+                // Perbarui status sesuai metode pembayaran
+                // Untuk COD, status awal lebih baik 'menunggu konfirmasi' daripada 'sudah bayar'
+                $status = $request->metode_pembayaran === 'cod' ? 'menunggu konfirmasi' : 'belum bayar';
+
+                // Buat entri Transaksi baru
                 $transaksi = Transaksi::create([
                     'pembeli_id' => Auth::user()->pembeli->id,
                     'kode_transaksi' => Transaksi::generateKode(),
@@ -98,9 +151,10 @@ class TransaksiController extends Controller
                     'kode_pos' => $request->kode_pos,
                     'jasa_pengiriman' => $request->jasa_pengiriman,
                     'metode_pembayaran' => $request->metode_pembayaran,
-                    'harga_ongkir' => $request->harga_ongkir,
+                    'harga_ongkir' => $ongkir,
                 ]);
 
+                // Buat item transaksi dari setiap item keranjang
                 foreach ($group as $cart) {
                     TransaksiItem::create([
                         'transaksi_id' => $transaksi->id,
@@ -112,17 +166,21 @@ class TransaksiController extends Controller
                     ]);
                 }
 
-                // Hanya buat transaksi Midtrans jika bukan COD
-                if ($request->metode_pembayaran !== 'cod' && $transaksi->isMidtrans()) {
+                // Panggil Midtrans jika metode pembayaran bukan COD
+                if ($request->metode_pembayaran !== 'cod') {
                     $this->createMidtransTransaction($transaksi);
                 }
 
                 $transaksiIds[] = $transaksi->id;
             }
 
+            // Hapus item keranjang yang sudah diproses
             Cart::whereIn('id', $cartIds)->delete();
+
+            // Komit database transaction
             DB::commit();
 
+            // Redirect ke halaman yang sesuai
             if (count($transaksiIds) === 1) {
                 return redirect()->route('transaksi.show', $transaksiIds[0])
                     ->with('success', 'Checkout berhasil! Silakan lanjut ke pembayaran.');
@@ -132,20 +190,19 @@ class TransaksiController extends Controller
                 ->with('success', 'Checkout berhasil untuk beberapa penjual! Silakan lanjut ke pembayaran.');
 
         } catch (\Exception $e) {
+            // Jika ada error, rollback database transaction
             DB::rollBack();
             return back()->with('error', 'Terjadi kesalahan saat memproses transaksi. ' . $e->getMessage());
         }
     }
 
-
-
     public function createMidtransTransaction(Transaksi $transaksi)
     {
-        // Ambil user + pembeli
+        Log::info('MIDTRANS: Memulai pembuatan transaksi Midtrans.', ['transaksi_id' => $transaksi->id]);
+
         $pembeli = $transaksi->pembeli;
         $user = $pembeli->user;
 
-        // Ambil item-item transaksi
         $items = $transaksi->items->map(function ($item) {
             return [
                 'id' => $item->produk_id,
@@ -164,10 +221,8 @@ class TransaksiController extends Controller
             ];
         }
 
-        // Total harga
-        $grossAmount = $transaksi->total_harga;
+        $grossAmount = array_sum(array_map(fn($item) => $item['price'] * $item['quantity'], $items));
 
-        // Payload Midtrans
         $payload = [
             'transaction_details' => [
                 'order_id' => $transaksi->kode_transaksi,
@@ -189,48 +244,84 @@ class TransaksiController extends Controller
             ],
             'expiry' => [
                 'start_time' => now()->format('Y-m-d H:i:s O'),
-                'unit' => 'hours', // gunakan 'hours' bukan 'minutes'
-                'duration' => 24,  // artinya 24 jam
+                'unit' => 'hours',
+                'duration' => 24,
             ],
         ];
-        \Log::info('MIDTRANS PAYLOAD', ['payload' => $payload]);
-
+        Log::info('MIDTRANS: Payload siap dikirim.', ['payload' => $payload]);
 
         if (empty($items)) {
+            Log::error('MIDTRANS: Item transaksi kosong. Tidak dapat melanjutkan.');
             throw new \Exception('Item transaksi kosong');
         }
 
-        // Buat Snap Token dari Midtrans
-        $snapToken = Snap::getSnapToken($payload);
+        try {
+            Log::info('MIDTRANS: Mencoba membuat Snap Token...');
+            $snapToken = Snap::getSnapToken($payload);
+            Log::info('MIDTRANS: Snap Token berhasil dibuat.', ['token' => $snapToken]);
 
-        // Simpan snap token ke transaksi
-        $transaksi->update(['snap_token' => $snapToken]);
-
-        \Log::info('MIDTRANS SNAP TOKEN', ['token' => $snapToken]);
-
+            $transaksi->update(['snap_token' => $snapToken]);
+            Log::info('MIDTRANS: Snap Token berhasil disimpan ke database.', ['transaksi_id' => $transaksi->id]);
+        } catch (\Exception $e) {
+            Log::error('MIDTRANS: Gagal membuat Snap Token.', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+            ]);
+            throw new \Exception('Gagal membuat Snap Token: ' . $e->getMessage());
+        }
 
         return $snapToken;
     }
 
+
+
     public function checkoutForm(Request $request)
     {
+        // Validate the cart IDs
         $request->validate([
             'cart_ids' => 'present|array',
             'cart_ids.*' => 'exists:carts,id',
         ]);
 
+        // Get the cart IDs from the request
         $cartIds = $request->cart_ids;
 
+        // Get the carts with the given IDs
         $carts = Cart::with(['produk', 'penjual'])
             ->whereIn('id', $cartIds)
             ->where('pembeli_id', Auth::user()->pembeli->id)
             ->get();
 
+        // Return the checkout form with the carts
         return inertia('Buyer/Checkout/Form', [
             'carts' => $carts,
         ]);
     }
 
+
+    private function calculateShippingCost($distanceKm, $jasaPengiriman, $totalBelanja)
+    {
+        $ongkir = 0;
+
+        if ($jasaPengiriman === 'ojek' && $totalBelanja < 25000) {
+            return -1; // Mengembalikan nilai -1 sebagai indikasi error
+        }
+
+        if ($distanceKm <= 3) {
+            $ongkir = 7000;
+        } elseif ($distanceKm <= 5) {
+            $ongkir = 10000;
+        } elseif ($distanceKm <= 8) {
+            $ongkir = 13000;
+        } elseif ($distanceKm <= 10) {
+            $ongkir = 15000;
+        } else {
+            $ongkir = 20000;
+        }
+
+        return $ongkir;
+    }
 
     public function updateStatus(Request $request, $transaksiId)
     {
@@ -356,6 +447,70 @@ class TransaksiController extends Controller
         ]);
     }
 
+    function getCoordinates($kecamatan)
+    {
+        // $apiKey = env('ORS_API_KEY');
+        $response = Http::get('https://api.openrouteservice.org/geocode/search', [
+            'api_key' => "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImY3YzMzYjZiOTJiNDRhMjA4YzIyNTIyODM0OWNkMGRlIiwiaCI6Im11cm11cjY0In0=",
+            'text' => $kecamatan,
+            'size' => 1
+        ]);
 
+        Log::info('Geocode API response:', $response->json()); // log semua respons mentah
+
+        if ($response->successful()) {
+            $data = $response->json();
+            if (!empty($data['features'][0]['geometry']['coordinates'])) {
+                $coords = $data['features'][0]['geometry']['coordinates'];
+                Log::info('Coordinates found:', $coords);
+                return $coords; // [lon, lat]
+            }
+        }
+
+        Log::warning("Coordinates not found for: {$kecamatan}");
+        return null;
+    }
+
+    function getDistanceKm($coord1, $coord2)
+    {
+        // $apiKey = env('ORS_API_KEY');
+
+        $body = [
+            'locations' => [
+                $coord1,
+                $coord2,
+            ],
+            'metrics' => ['distance'],
+        ];
+
+        $response = Http::withHeaders([
+            'Authorization' => "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImY3YzMzYjZiOTJiNDRhMjA4YzIyNTIyODM0OWNkMGRlIiwiaCI6Im11cm11cjY0In0=",
+            'Content-Type'  => 'application/json',
+        ])->post('https://api.openrouteservice.org/v2/matrix/driving-car', $body);
+
+        Log::info('Distance API response:', $response->json()); // log hasil mentah
+
+        if ($response->successful()) {
+            $data = $response->json();
+            Log::info('Matrix distances array:', $data['distances'] ?? []);
+            $distanceMeters = $data['distances'][0][1] ?? null;
+
+            if ($distanceMeters) {
+                $distanceKm = $distanceMeters / 1000;
+                Log::info("Distance in KM: {$distanceKm}");
+                return $distanceKm;
+            } else {
+                Log::warning('Distance calculation returned null', [
+                    'coord1' => $coord1,
+                    'coord2' => $coord2,
+                    'matrix_data' => $data
+                ]);
+            }
+        }
+
+
+        Log::warning('Failed to get distance.');
+        return null;
+    }
 
 }

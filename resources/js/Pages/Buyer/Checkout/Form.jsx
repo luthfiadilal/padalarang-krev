@@ -232,19 +232,11 @@ export default function CheckoutForm({ carts }) {
                             setData('jasa_pengiriman', value);
 
                             // Set harga_ongkir otomatis berdasarkan jasa
-                            if (value === 'ojek')
-                                setData('harga_ongkir', 10000);
-                            else if (value === 'kurir')
-                                setData('harga_ongkir', 12000);
-                            else if (value === 'jne')
-                                setData('harga_ongkir', 15000);
-                            else setData('harga_ongkir', 0);
                         }}
                     >
                         <option value="">-- Pilih --</option>
                         <option value="ojek">Ojek</option>
-                        <option value="kurir">Kurir Lokal</option>
-                        <option value="jne">JNE</option>
+                        <option value="ambil_di_tempat">Ambil di Tempat</option>
                     </select>
                 </div>
 

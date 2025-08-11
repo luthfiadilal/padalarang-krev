@@ -23,7 +23,7 @@ export default function PaymentTabsSeller({
                     }`}
                     onClick={() => setActiveTab('belumBayar')}
                 >
-                    Belum Bayar
+                    Menunggu diterima
                 </button>
                 <button
                     className={`${tabStyle} ${
@@ -31,7 +31,7 @@ export default function PaymentTabsSeller({
                     }`}
                     onClick={() => setActiveTab('sudahBayar')}
                 >
-                    Sudah Bayar
+                    Telah diterima
                 </button>
                 <button
                     className={`${tabStyle} ${

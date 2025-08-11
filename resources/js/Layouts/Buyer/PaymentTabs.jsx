@@ -20,7 +20,7 @@ export default function PaymentTabs({ belumBayar, sudahBayar, dibatalkan }) {
                     }`}
                     onClick={() => setActiveTab('belumBayar')}
                 >
-                    Belum Bayar
+                    Menunggu diterima
                 </button>
                 <button
                     className={`${tabStyle} ${

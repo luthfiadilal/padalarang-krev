@@ -95,6 +95,9 @@ class ProfileController extends Controller
             'alamat' => 'nullable|string|max:255',
             'foto_profil' => 'nullable|image|max:2048', // opsional
             'is_active' => 'required_if:role,seller|integer|in:0,1',
+            'kota' => 'required_if:role,seller|string|max:255',
+            'kecamatan' => 'required_if:role,seller|string|max:255',
+            'kelurahan' => 'required_if:role,seller|string|max:255',
         ]);
 
 
@@ -121,6 +124,9 @@ class ProfileController extends Controller
                     'alamat' => $request->alamat,
                     'foto_profil' => $fotoProfilPath ?? $user->penjual->foto_profil ?? null,
                     'is_active' => $request->is_active,
+                    'kota' => $request->kota,
+                    'kecamatan' => $request->kecamatan,
+                    'kelurahan' => $request->kelurahan,
                     'kategori_bisnis' => $request->kategori_bisnis,
                 ]
             ),

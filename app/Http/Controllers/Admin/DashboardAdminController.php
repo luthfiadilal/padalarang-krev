@@ -8,6 +8,7 @@ use App\Models\Produk;
 use Illuminate\Http\Request;
 use App\Models\TransaksiItem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 
@@ -94,6 +95,31 @@ class DashboardAdminController extends Controller
         ]);
     }
 
+    public function togglePenjualActive(Request $request, User $user)
+    {
+        // pastikan user adalah seller
+        if ($user->role !== 'seller') {
+            return response()->json(['message' => 'User bukan penjual'], 400);
+        }
+
+        // pastikan ada record penjual
+        if (! $user->penjual) {
+            return response()->json(['message' => 'Data penjual tidak ditemukan'], 404);
+        }
+
+        $isActive = (int) $request->input('is_active', 0);
+        $user->penjual->update(['is_active' => $isActive]);
+
+        Log::info("Admin toggled penjual is_active", [
+            'user_id' => $user->id,
+            'penjual_id' => $user->penjual->id,
+            'is_active' => $isActive
+        ]);
+
+        return response()->json(['message' => 'Status berhasil diubah', 'is_active' => $isActive]);
+    }
+
+
      public function edit($id)
     {
         $user = User::with(['penjual', 'pembeli', 'admin'])->findOrFail($id);
@@ -117,7 +143,7 @@ class DashboardAdminController extends Controller
         ]);
 
         if ($user->isSeller() && $user->penjual) {
-            $user->penjual->update($request->only(['nama_toko',  'no_hp', 'alamat', ]));
+            $user->penjual->update($request->only(['nama_toko',  'no_hp', 'alamat', 'is_active']));
         } elseif ($user->isBuyer() && $user->pembeli) {
             $user->pembeli->update($request->only(['no_hp', 'alamat', ]));
         } elseif ($user->isAdmin() && $user->admin) {

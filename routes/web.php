@@ -42,16 +42,23 @@ Route::get('/', function () {
     return Inertia::render('LandingPage/Home');
 });
 
+// di routes/web.php
+Route::post('/midtrans-callback', [MidtransController::class, 'handle']);
+
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/dashboard-admin', [DashboardAdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/users', [DashboardAdminController::class, 'userList'])->name('admin.users.index');
-    Route::get('/users/{id}/edit', [DashboardAdminController::class, 'update'])->name('admin.users.update');
+
+    Route::get('/users/{id}/edit', [DashboardAdminController::class, 'edit'])->name('admin.users.edit'); // GET untuk form edit
+    Route::put('/users/{id}', [DashboardAdminController::class, 'update'])->name('admin.users.update'); // PUT untuk update
     Route::delete('/users/{id}', [DashboardAdminController::class, 'destroy'])->name('admin.users.destroy');
+
     Route::get('/produkpenjual', [DashboardAdminController::class, 'semuaProdukPerKategori'])->name('admin.toko.produk');
     Route::get('/all-transaksi', [DashboardAdminController::class, 'allTransaksi'])->name('admin.transaksi.index');
     Route::get('/admin/register', [RegisterSellerController::class, 'create'])->name('register.seller');
     Route::post('/admin/register', [RegisterSellerController::class, 'store'])->name('register.seller.store');
 });
+
 
 Route::middleware(['auth', 'role:buyer'])->group(function() {
     Route::get('/marketplace', [ProdukBuyerController::class, 'index'])->name('marketplace-index');

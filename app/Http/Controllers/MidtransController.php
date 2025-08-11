@@ -2,72 +2,79 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Transaksi;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
+use Midtrans\Config;
 use Midtrans\Notification;
 
 class MidtransController extends Controller
 {
-    public function handleNotification(Request $request)
+    public function handle(Request $request)
     {
-        Log::info('NOTIFIKASI MASUK', ['payload' => $request->all()]);
         // Set konfigurasi Midtrans
-        \Midtrans\Config::$serverKey = config('midtrans.server_key');
-        \Midtrans\Config::$isProduction = config('midtrans.is_production');
-        \Midtrans\Config::$isSanitized = true;
-        \Midtrans\Config::$is3ds = true;
+        Config::$isProduction = config('services.midtrans.is_production');
+        Config::$serverKey = config('services.midtrans.server_key');
+        Config::$isSanitized = true;
+        Config::$is3ds = true;
 
-        // Ambil notifikasi
-        $notification = new Notification();
+        $notif = new Notification();
 
-        $transactionStatus = $notification->transaction_status;
-        $paymentType = $notification->payment_type;
-        $orderId = $notification->order_id;
-        $fraudStatus = $notification->fraud_status;
+        $transaction = $notif->transaction_status;
+        $type = $notif->payment_type;
+        $orderId = $notif->order_id;
+        $fraud = $notif->fraud_status;
 
-        Log::info('Midtrans Notification Received', [
-            'order_id' => $orderId,
-            'transaction_status' => $transactionStatus,
-            'payment_type' => $paymentType,
-            'fraud_status' => $fraudStatus,
-        ]);
-
-        // Ambil transaksi dari DB
+        // Cari transaksi berdasarkan order_id
         $transaksi = Transaksi::where('kode_transaksi', $orderId)->first();
 
         if (!$transaksi) {
-            Log::warning('Transaksi tidak ditemukan untuk order_id: ' . $orderId);
             return response()->json(['message' => 'Transaksi tidak ditemukan'], 404);
         }
 
-        // Handle status
-        switch ($transactionStatus) {
-            case 'capture':
-                // Langsung set status ke 'sudah bayar', tidak perlu cek credit_card
-                $transaksi->status = 'sudah bayar';
-                break;
-            case 'settlement':
-                $transaksi->status = 'sudah bayar';
-                break;
-            case 'pending':
-                $transaksi->status = 'belum bayar';
-                break;
-            case 'deny':
-            case 'cancel':
-                $transaksi->status = 'dibatalkan';
-                break;
-            case 'expire':
-                $transaksi->status = 'kadaluarsa';
-                break;
-            default:
-                Log::warning("Status transaksi tidak dikenali: $transactionStatus");
-                break;
+        // Periksa status pembayaran
+        if ($transaction == 'capture') {
+            if ($type == 'credit_card') {
+                if ($fraud == 'challenge') {
+                    $transaksi->update([
+                        'midtrans_status' => 'challenge',
+                        'midtrans_response' => $notif->getResponse()
+                    ]);
+                } else {
+                    $transaksi->update([
+                        'status' => 'sudah bayar',
+                        'midtrans_status' => 'settlement',
+                        'midtrans_response' => $notif->getResponse()
+                    ]);
+                }
+            }
+        } else if ($transaction == 'settlement') {
+            $transaksi->update([
+                'status' => 'sudah bayar',
+                'midtrans_status' => 'settlement',
+                'midtrans_response' => $notif->getResponse()
+            ]);
+        } else if ($transaction == 'pending') {
+            $transaksi->update([
+                'midtrans_status' => 'pending',
+                'midtrans_response' => $notif->getResponse()
+            ]);
+        } else if ($transaction == 'deny') {
+            $transaksi->update([
+                'midtrans_status' => 'deny',
+                'midtrans_response' => $notif->getResponse()
+            ]);
+        } else if ($transaction == 'expire') {
+            $transaksi->update([
+                'midtrans_status' => 'expire',
+                'midtrans_response' => $notif->getResponse()
+            ]);
+        } else if ($transaction == 'cancel') {
+            $transaksi->update([
+                'midtrans_status' => 'cancel',
+                'midtrans_response' => $notif->getResponse()
+            ]);
         }
 
-
-        $transaksi->save();
-
-        return response()->json(['message' => 'Notifikasi diproses'], 200);
+        return response()->json(['message' => 'OK']);
     }
 }
