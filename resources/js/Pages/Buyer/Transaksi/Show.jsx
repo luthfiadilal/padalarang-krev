@@ -177,14 +177,14 @@ export default function Show({ transaksi, client_key, is_production }) {
                         key={item.id}
                         className="flex gap-4 rounded-md border p-3"
                     >
-                        <img
+                        {/* <img
                             src={
                                 item.produk.foto ??
                                 'https://placehold.co/96x96/E5E7EB/9CA3AF?text=No+Image'
                             }
                             alt={item.produk.nama}
                             className="h-24 w-24 rounded object-cover"
-                        />
+                        /> */}
                         <div>
                             <h3 className="text-md font-bold">
                                 {item.produk.nama}

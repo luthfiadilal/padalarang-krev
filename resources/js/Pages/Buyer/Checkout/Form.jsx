@@ -1,6 +1,13 @@
 import { Link, router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 
 export default function CheckoutForm({ carts }) {
+    // Menghitung total belanja dari item-item di keranjang
+    const totalBelanja = carts.reduce((sum, cart) => sum + cart.harga_total, 0);
+
+    // State untuk mengontrol modal peringatan
+    const [showWarningModal, setShowWarningModal] = useState(false);
+
     const { data, setData, post, processing, errors } = useForm({
         cart_ids: carts.map((c) => c.id),
         catatan: '',
@@ -19,6 +26,12 @@ export default function CheckoutForm({ carts }) {
     const handleSubmit = (e) => {
         e.preventDefault();
 
+        // Validasi tambahan di sisi client sebelum mengirim form
+        if (data.jasa_pengiriman === 'ojek' && totalBelanja < 50000) {
+            setShowWarningModal(true);
+            return;
+        }
+
         post(route('checkout'), {
             onSuccess: (response) => {
                 const transaksiId = response.props.transaksi_id; // Ambil dari shared props
@@ -29,8 +42,67 @@ export default function CheckoutForm({ carts }) {
         });
     };
 
+    // Fungsi untuk menutup modal peringatan
+    const closeWarningModal = () => {
+        setShowWarningModal(false);
+    };
+
+    // Fungsi pembantu untuk memformat mata uang
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(amount);
+    };
+
     return (
         <div className="mx-auto max-w-3xl px-4 py-6">
+            {/* Modal Peringatan Kustom */}
+            {showWarningModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-50">
+                    <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-bold text-lg text-red-600">
+                                Peringatan!
+                            </h3>
+                            <button
+                                onClick={closeWarningModal}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-6 w-6"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
+                        <p className="mt-4 text-sm text-gray-700">
+                            Total belanja minimal Rp50.000 untuk menggunakan
+                            jasa ojek.
+                        </p>
+                        <div className="mt-6 text-right">
+                            <button
+                                onClick={closeWarningModal}
+                                className="rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Tombol Kembali */}
             <div className="mb-6">
                 <Link
@@ -58,22 +130,33 @@ export default function CheckoutForm({ carts }) {
                                     {cart.produk.nama}
                                 </p>
                                 <p className="text-sm text-gray-600">
-                                    Qty: {cart.quantity} x Rp
-                                    {cart.harga_satuan.toLocaleString('id-ID')}
+                                    Qty: {cart.quantity} x{' '}
+                                    {formatCurrency(cart.harga_satuan)}
                                 </p>
                             </div>
                             <p className="font-bold">
-                                Rp{cart.harga_total.toLocaleString('id-ID')}
+                                {formatCurrency(cart.harga_total)}
                             </p>
                         </li>
                     ))}
                 </ul>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Semua field form seperti sebelumnya */}
-                {/* ... form inputs ... */}
+            {/* Menampilkan total belanja */}
+            <div className="mb-6 rounded-lg bg-blue-50 p-4 shadow-sm">
+                <p className="font-semibold text-gray-800">
+                    Total Belanja: {formatCurrency(totalBelanja)}
+                </p>
+                {/* Peringatan jika total belanja di bawah 50.000 */}
+                {totalBelanja < 50000 && (
+                    <p className="mt-2 text-sm text-red-600">
+                        Total belanja di bawah Rp50.000. Opsi pengiriman 'Ojek'
+                        tidak bisa digunakan.
+                    </p>
+                )}
+            </div>
 
+            <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Nama Penerima */}
                 <div>
                     <label className="font-medium mb-2 block">
@@ -214,13 +297,19 @@ export default function CheckoutForm({ carts }) {
                         value={data.jasa_pengiriman}
                         onChange={(e) => {
                             const value = e.target.value;
-                            setData('jasa_pengiriman', value);
-
-                            // Set harga_ongkir otomatis berdasarkan jasa
+                            if (value === 'ojek' && totalBelanja < 50000) {
+                                setShowWarningModal(true);
+                                setData('jasa_pengiriman', ''); // Reset pilihan
+                            } else {
+                                setData('jasa_pengiriman', value);
+                            }
                         }}
                     >
                         <option value="">-- Pilih --</option>
-                        <option value="ojek">Ojek</option>
+                        {/* Opsi Ojek dinonaktifkan jika total belanja < 50000 */}
+                        <option value="ojek" disabled={totalBelanja < 50000}>
+                            Ojek
+                        </option>
                         <option value="ambil_di_tempat">Ambil di Tempat</option>
                     </select>
                 </div>

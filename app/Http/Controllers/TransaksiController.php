@@ -32,30 +32,48 @@ class TransaksiController extends Controller
             $transaksiGrup = Transaksi::with(['items.produk.penjual', 'items.penjual'])
                 ->where('parent_transaction_id', $mainTransaksi->parent_transaction_id)
                 ->get();
+            // Cari transaksi induk, tambahkan pengecekan jika tidak ditemukan
+            $parentTransaksi = Transaksi::find($mainTransaksi->parent_transaction_id);
+
         } else {
             Log::info('Transaksi ID: ' . $id . ' adalah transaksi induk. Mencari semua transaksi anak.');
             $transaksiGrup = Transaksi::with(['items.produk.penjual', 'items.penjual'])
                 ->where(function ($q) use ($mainTransaksi) {
                     $q->where('id', $mainTransaksi->id)
-                      ->orWhere('parent_transaction_id', $mainTransaksi->id);
+                        ->orWhere('parent_transaction_id', $mainTransaksi->id);
                 })
                 ->get();
+            $parentTransaksi = $mainTransaksi;
+        }
+
+        // Tambahkan pengecekan jika $parentTransaksi tidak ditemukan
+        if (!$parentTransaksi) {
+            Log::error('Transaksi induk tidak ditemukan untuk transaksi ID: ' . $id);
+            // Anda bisa mengarahkan pengguna ke halaman lain atau menampilkan pesan error.
+            // Misalnya, abort(404, 'Transaksi tidak ditemukan.');
+            // Atau beri nilai default agar tidak error
+            $parentTransaksi = $mainTransaksi;
         }
 
         Log::info('Jumlah transaksi dalam grup: ' . $transaksiGrup->count());
 
         $allGroupItems = collect();
         $totalHargaGabungan = 0;
-        $snap_token = $mainTransaksi->snap_token;
+        $totalOngkirGabungan = 0;
+        // Akses properti dengan aman
+        $snap_token = $parentTransaksi->snap_token ?? null;
+
 
         foreach ($transaksiGrup as $transaksi) {
             foreach ($transaksi->items as $item) {
                 $allGroupItems->push($item);
             }
             $totalHargaGabungan += $transaksi->total_harga;
+            $totalOngkirGabungan += $transaksi->harga_ongkir; // Tambahkan ongkir dari setiap transaksi anak
         }
 
         Log::info('Total harga gabungan: ' . $totalHargaGabungan);
+        Log::info('Total ongkir gabungan: ' . $totalOngkirGabungan);
 
         $items = $allGroupItems->map(function ($item) {
             $harga = $item->produk->harga_diskon ?? $item->produk->harga ?? 0;
@@ -70,16 +88,12 @@ class TransaksiController extends Controller
             ];
         });
 
-        if (empty($snap_token) && $mainTransaksi->metode_pembayaran !== 'cod' && $mainTransaksi->status === 'pending') {
+        if (empty($snap_token) && $parentTransaksi->metode_pembayaran !== 'cod' && $parentTransaksi->status === 'pending') {
             Log::info('Snap token belum ada, status pending. Mencoba membuat Snap Token.');
             try {
-                $transaksiGrup = Transaksi::with(['items.produk'])
-                    ->whereIn('id', $transaksiGrup->pluck('id'))
-                    ->get();
-                Log::info('Data transaksi untuk Midtrans: ' . json_encode($transaksiGrup->toArray()));
-
+                // Logika pembuatan token tetap sama
                 $snap_token = $this->createMidtransTransactionGabungan($transaksiGrup);
-                $mainTransaksi->refresh();
+                $parentTransaksi->refresh();
                 Log::info('Snap token berhasil dibuat dan disimpan: ' . $snap_token);
             } catch (Exception $e) {
                 Log::error('Gagal membuat Midtrans Snap Token:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
@@ -90,17 +104,24 @@ class TransaksiController extends Controller
         Log::info('Method show selesai. Mengirimkan data ke view.');
         return Inertia::render('Buyer/Transaksi/Show', [
             'transaksi' => [
-                'id' => $mainTransaksi->id,
-                'kode_transaksi' => $mainTransaksi->parent_transaction_id
-                    ? 'GABUNGAN-' . ($mainTransaksi->parent_transaction_id ?? $mainTransaksi->id)
-                    : $mainTransaksi->kode_transaksi,
+                'id' => $parentTransaksi->id,
+                'kode_transaksi' => $parentTransaksi->parent_transaction_id
+                    ? 'GABUNGAN-' . ($parentTransaksi->parent_transaction_id ?? $parentTransaksi->id)
+                    : $parentTransaksi->kode_transaksi,
                 'total_harga' => $totalHargaGabungan,
-                'status' => $mainTransaksi->status,
-                'metode_pembayaran' => $mainTransaksi->metode_pembayaran,
-                'nama_penerima' => $mainTransaksi->nama_penerima,
+                'status' => $parentTransaksi->status,
+                'metode_pembayaran' => $parentTransaksi->metode_pembayaran,
+                'nama_penerima' => $parentTransaksi->nama_penerima,
+                'telepon_penerima' => $parentTransaksi->telepon_penerima,
+                'alamat_lengkap' => $parentTransaksi->alamat_lengkap,
+                'kelurahan' => $parentTransaksi->kelurahan,
+                'kecamatan' => $parentTransaksi->kecamatan,
+                'kota' => $parentTransaksi->kota,
+                'kode_pos' => $parentTransaksi->kode_pos,
+                'harga_ongkir' => $totalOngkirGabungan,
                 'items' => $items,
+                'snap_token' => $snap_token,
             ],
-            'snap_token' => $snap_token,
             'client_key' => config('services.midtrans.client_key'),
             'is_production' => config('services.midtrans.is_production')
         ]);
@@ -169,7 +190,7 @@ class TransaksiController extends Controller
                     }
                 }
 
-                $status = $request->metode_pembayaran === 'cod' ? 'belum bayar' : 'pending';
+                $status = ($request->metode_pembayaran === 'cod') ? 'menunggu diterima' : 'belum bayar';
 
                 $transaksi = Transaksi::create([
                     'pembeli_id' => $pembeli->id,
@@ -227,7 +248,6 @@ class TransaksiController extends Controller
             return back()->with('error', 'Terjadi kesalahan saat memproses transaksi. Silakan coba lagi.');
         }
     }
-
 
     /**
      * Buat transaksi Midtrans untuk transaksi gabungan.
@@ -313,8 +333,6 @@ class TransaksiController extends Controller
             throw $e;
         }
     }
-
-
 
 
     public function checkoutForm(Request $request)
@@ -409,14 +427,21 @@ class TransaksiController extends Controller
 
     public function updateStatus(Request $request, $transaksiId)
     {
+        // Validasi status baru harus sesuai dengan nilai enum di database.
         $request->validate([
-            'status' => 'required|in:belum bayar,sudah bayar,dibatalkan',
+            'status' => 'required|in:belum bayar,menunggu diterima,telah diterima,cancel',
         ]);
 
         $penjualId = Auth::user()->penjual->id ?? null;
 
         if (!$penjualId) {
             abort(403, 'Hanya penjual yang dapat mengubah status transaksi.');
+        }
+
+        // Penjual tidak diperbolehkan untuk mengubah status menjadi 'telah diterima'.
+        // Status ini seharusnya hanya bisa diubah oleh pembeli.
+        if ($request->status === 'telah diterima') {
+            abort(403, 'Anda tidak memiliki izin untuk menandai pesanan sebagai telah diterima.');
         }
 
         $transaksi = Transaksi::with('items')->findOrFail($transaksiId);
@@ -475,6 +500,39 @@ class TransaksiController extends Controller
         }
     }
 
+
+    public function toReceived($transaksiId)
+    {
+        $transaksi = Transaksi::findOrFail($transaksiId);
+        $pembeliId = Auth::user()->pembeli->id ?? null;
+
+        // Pastikan hanya pembeli yang punya transaksi ini yang bisa menandai diterima.
+        if ($transaksi->pembeli_id !== $pembeliId) {
+            abort(403, 'Anda tidak memiliki akses untuk mengubah status transaksi ini.');
+        }
+
+        // Pastikan status saat ini adalah 'menunggu diterima' sebelum dapat diubah menjadi 'telah diterima'.
+        if ($transaksi->status !== 'menunggu diterima') {
+            return back()->with('error', 'Transaksi hanya bisa ditandai telah diterima jika statusnya "menunggu diterima".');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // Update status transaksi
+            $transaksi->update([
+                'status' => 'telah diterima'
+            ]);
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Transaksi berhasil ditandai sebagai telah diterima.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal mengubah status transaksi: ' . $e->getMessage());
+        }
+    }
+
     public function history()
     {
         $pembeliId = Auth::user()->pembeli->id;
@@ -489,12 +547,14 @@ class TransaksiController extends Controller
 
         // Kelompokkan per status untuk tab
         $belumBayar = $transaksis->where('status', 'belum bayar')->values();
-        $sudahBayar = $transaksis->where('status', 'sudah bayar')->values();
-        $dibatalkan = $transaksis->where('status', 'dibatalkan')->values();
+        $menungguDiterima = $transaksis->where('status', 'menunggu diterima')->values();
+        $telahDiterima = $transaksis->where('status', 'telah diterima')->values();
+        $dibatalkan = $transaksis->where('status', 'cancel')->values();
 
         return inertia('Buyer/PaymentHistory/PaymentHistoryPage', [
             'belumBayar' => $belumBayar,
-            'sudahBayar' => $sudahBayar,
+            'menungguDiterima' => $menungguDiterima,
+            'telahDiterima' => $telahDiterima,
             'dibatalkan' => $dibatalkan,
             'user' => $user,
         ]);
@@ -520,12 +580,14 @@ class TransaksiController extends Controller
 
         // Kelompokkan per status untuk tab
         $belumBayar = $transaksis->where('status', 'belum bayar')->values();
-        $sudahBayar = $transaksis->where('status', 'sudah bayar')->values();
-        $dibatalkan = $transaksis->where('status', 'dibatalkan')->values();
+        $menungguDiterima = $transaksis->where('status', 'menunggu diterima')->values();
+        $telahDiterima = $transaksis->where('status', 'telah diterima')->values();
+        $dibatalkan = $transaksis->where('status', 'cancel')->values();
 
         return inertia('Seller/PaymentHistory/PaymentHistoryPage', [
             'belumBayar' => $belumBayar,
-            'sudahBayar' => $sudahBayar,
+            'menungguDiterima' => $menungguDiterima,
+            'telahDiterima' => $telahDiterima,
             'dibatalkan' => $dibatalkan,
             'user' => $user,
         ]);

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import PaymentCardGroupSeller from './PaymentCardGroupSeller';
 export default function PaymentTabsSeller({
     belumBayar,
-    sudahBayar,
+    menungguDiterima,
+    telahDiterima,
     dibatalkan,
 }) {
     const [activeTab, setActiveTab] = useState('belumBayar');
@@ -16,22 +17,34 @@ export default function PaymentTabsSeller({
     return (
         <div className="w-full">
             {/* Tab Header */}
-            <div className="flex gap-2 border-b border-gray-200 pb-2">
+            <div className="flex gap-2 overflow-x-auto border-b border-gray-200 pb-2">
                 <button
                     className={`${tabStyle} ${
                         activeTab === 'belumBayar' ? activeStyle : inactiveStyle
                     }`}
                     onClick={() => setActiveTab('belumBayar')}
                 >
-                    Menunggu diterima
+                    Belum Bayar
                 </button>
                 <button
                     className={`${tabStyle} ${
-                        activeTab === 'sudahBayar' ? activeStyle : inactiveStyle
+                        activeTab === 'menungguDiterima'
+                            ? activeStyle
+                            : inactiveStyle
                     }`}
-                    onClick={() => setActiveTab('sudahBayar')}
+                    onClick={() => setActiveTab('menungguDiterima')}
                 >
-                    Telah diterima
+                    Menunggu Diterima
+                </button>
+                <button
+                    className={`${tabStyle} ${
+                        activeTab === 'telahDiterima'
+                            ? activeStyle
+                            : inactiveStyle
+                    }`}
+                    onClick={() => setActiveTab('telahDiterima')}
+                >
+                    Telah Diterima
                 </button>
                 <button
                     className={`${tabStyle} ${
@@ -48,7 +61,7 @@ export default function PaymentTabsSeller({
                 {activeTab === 'belumBayar' &&
                     (belumBayar.length === 0 ? (
                         <p className="text-sm italic text-textgray">
-                            Tidak ada transaksi.
+                            Tidak ada transaksi yang belum dibayar.
                         </p>
                     ) : (
                         belumBayar.map((trx) => (
@@ -60,24 +73,40 @@ export default function PaymentTabsSeller({
                         ))
                     ))}
 
-                {activeTab === 'sudahBayar' &&
-                    (sudahBayar.length === 0 ? (
+                {activeTab === 'menungguDiterima' &&
+                    (menungguDiterima.length === 0 ? (
                         <p className="text-sm italic text-textgray">
-                            Tidak ada transaksi.
+                            Tidak ada transaksi yang sedang menunggu.
                         </p>
                     ) : (
-                        sudahBayar.map((trx) => (
+                        menungguDiterima.map((trx) => (
                             <PaymentCardGroupSeller
                                 key={trx.id}
                                 transaksi={trx}
-                                status="sudahBayar"
+                                status="menungguDiterima"
                             />
                         ))
                     ))}
+
+                {activeTab === 'telahDiterima' &&
+                    (telahDiterima.length === 0 ? (
+                        <p className="text-sm italic text-textgray">
+                            Tidak ada transaksi yang telah diterima.
+                        </p>
+                    ) : (
+                        telahDiterima.map((trx) => (
+                            <PaymentCardGroupSeller
+                                key={trx.id}
+                                transaksi={trx}
+                                status="telahDiterima"
+                            />
+                        ))
+                    ))}
+
                 {activeTab === 'dibatalkan' &&
                     (dibatalkan.length === 0 ? (
                         <p className="text-sm italic text-textgray">
-                            Tidak ada transaksi.
+                            Tidak ada transaksi yang dibatalkan.
                         </p>
                     ) : (
                         dibatalkan.map((trx) => (

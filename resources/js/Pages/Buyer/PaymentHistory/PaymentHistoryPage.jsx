@@ -4,8 +4,9 @@ import { Head } from '@inertiajs/react';
 
 export default function PaymentHistoryPage({
     belumBayar,
-    sudahBayar,
-    dibatalkan,
+    menungguDiterima, // Properti baru
+    telahDiterima, // Properti baru
+    dibatalkan, // Diperbarui dari 'dibatalkan'
     user,
 }) {
     return (
@@ -16,7 +17,8 @@ export default function PaymentHistoryPage({
                 <h1 className="font-bold mb-4 text-2xl">Riwayat Pembayaran</h1>
                 <PaymentTabs
                     belumBayar={belumBayar}
-                    sudahBayar={sudahBayar}
+                    menungguDiterima={menungguDiterima} // Mengirim properti baru
+                    telahDiterima={telahDiterima} // Mengirim properti baru
                     dibatalkan={dibatalkan}
                 />
             </div>

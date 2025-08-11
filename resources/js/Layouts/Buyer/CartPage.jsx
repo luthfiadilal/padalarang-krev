@@ -29,7 +29,8 @@ export default function CartPage({ carts, onUpdateQty, onRemoveItem }) {
 
     const handleCombinedCheckout = () => {
         if (selected.length === 0) {
-            alert('Tidak ada produk yang dipilih.');
+            // Ganti alert dengan modal UI custom
+            // alert('Tidak ada produk yang dipilih.');
             return;
         }
 
@@ -37,7 +38,9 @@ export default function CartPage({ carts, onUpdateQty, onRemoveItem }) {
     };
 
     return (
-        <div className="mx-auto max-w-7xl p-4">
+        // Menambahkan pb-20 untuk memberikan padding di bagian bawah
+        // sehingga konten tidak tertutup oleh footer yang fixed.
+        <div className="mx-auto max-w-7xl p-4 pb-20">
             <h2 className="font-bold mb-4 text-xl">Keranjang Belanja</h2>
             <div className="rounded bg-white">
                 <div className="flex items-center border-b p-4">
@@ -77,7 +80,7 @@ export default function CartPage({ carts, onUpdateQty, onRemoveItem }) {
             </div>
 
             {/* Tombol checkout gabungan di luar loop */}
-            <div className="fixed bottom-0 left-0 right-0 mx-auto max-w-7xl bg-white p-4 shadow-lg">
+            <div className="fixed bottom-0 left-0 right-0 mx-auto w-full bg-white p-4 shadow-lg">
                 <div className="mx-auto flex max-w-7xl items-center justify-between">
                     <div className="flex-1">
                         <span className="font-semibold text-lg">

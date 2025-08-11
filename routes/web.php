@@ -43,7 +43,8 @@ Route::get('/', function () {
 });
 
 // di routes/web.php
-Route::post('/midtrans-callback', [MidtransController::class, 'handle']);
+Route::post('/midtrans-callback', [MidtransController::class, 'handle'])->withoutMiddleware('web');
+
 
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/dashboard-admin', [DashboardAdminController::class, 'index'])->name('admin.dashboard');
@@ -68,13 +69,16 @@ Route::middleware(['auth', 'role:buyer'])->group(function() {
     // Route::post('/cart', [CartController::class, 'store'])->name('cart.store');      // Tambah ke keranjang
     Route::put('/cart/{id}', [CartController::class, 'update'])->name('cart.update'); // Update qty
     Route::delete('/cart/{id}', [CartController::class, 'destroy'])->name('cart.destroy'); // Hapus item
-
+    Route::post('/cart-direct-checkout', [CartController::class, 'storeDirectCheckout'])->name('cart.direct-checkout');
     Route::post('/checkout', [TransaksiController::class, 'checkout'])->name('checkout');
     Route::get('/checkout/form', [TransaksiController::class, 'checkoutForm'])->name('buyer.checkout.form');
     Route::get('/history-buyer', [TransaksiController::class, 'history'])->name('history-buyer.index');
     Route::get('/transaksi/{id}', [TransaksiController::class, 'show'])->name('transaksi.show');
     Route::post('/transaksi/{transaksi}/cancel', [TransaksiController::class, 'toCancel'])
     ->name('transaksi.cancel');
+
+    Route::post('/transaksi/{transaksi}/received', [TransaksiController::class, 'toReceived'])
+    ->name('transaksi.received');
 
     Route::get('/developer-hub', function () {
         $user = Auth::user()->load(['pembeli' => function($query) {

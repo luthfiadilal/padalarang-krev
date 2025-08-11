@@ -1,11 +1,17 @@
 import { Icon } from '@iconify/react';
+import { router } from '@inertiajs/react';
 import axios from 'axios';
 import { Button } from 'flowbite-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { route } from 'ziggy-js';
 import Modal from '../../Components/Modal';
+// Pastikan Inertia.js (router) dan route() helper sudah tersedia
+// import { router } from '@inertiajs/react';
+// import { route } from 'ziggy-js';
 
 const ProdukModal = ({ product, showModal, onClose }) => {
+    // Pastikan produk ada sebelum merender
     if (!product) return null;
 
     const getImageUrl = (path, isGallery = false) => {
@@ -21,12 +27,11 @@ const ProdukModal = ({ product, showModal, onClose }) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const [quantity, setQuantity] = useState(1);
 
+    // Mengatur gambar utama saat produk berubah
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
         if (product) {
-            // eslint-disable-next-line no-unused-vars
-            const images = [product.foto, ...(product.gallery || [])];
-            setCurrentImage(product.foto); // default tampilan pertama
+            setCurrentImage(product.foto);
         }
     }, [product]);
 
@@ -50,19 +55,20 @@ Apakah produk ini masih tersedia?`;
                 `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
             );
         } else {
-            alert('Kontak penjual tidak tersedia');
+            toast.info('Kontak penjual tidak tersedia.');
         }
     };
 
     const handleTambahKeranjang = async () => {
         try {
-            const response = await axios.post('/buyer/cart', {
+            const response = await axios.post('cart', {
                 produk_id: product.id,
-                quantity: 1,
+                quantity: quantity,
             });
             toast.success(
                 response.data.message || 'Berhasil menambahkan ke keranjang',
             );
+            onClose();
         } catch (error) {
             console.error('Gagal tambah keranjang:', error);
             toast.error(
@@ -70,6 +76,82 @@ Apakah produk ini masih tersedia?`;
                     'Terjadi kesalahan saat menambahkan ke keranjang',
             );
         }
+    };
+
+    // FUNGSI BARU UNTUK CHECKOUT LANGSUNG
+    const handleDirectCheckout = (e) => {
+        e.stopPropagation();
+
+        console.log('--- Memulai alur checkout langsung ---');
+        console.log('ID Produk yang dipilih:', product.id);
+        console.log('Jumlah produk:', quantity);
+
+        // Memanggil endpoint untuk membuat entri keranjang dan mendapatkan ID
+        axios
+            .post('/cart-direct-checkout', {
+                produk_id: product.id,
+                quantity: quantity, // Menggunakan state quantity yang dipilih
+            })
+            .then((response) => {
+                console.log(
+                    'Respons dari API /cart-direct-checkout:',
+                    response.data,
+                );
+
+                const cartId = response.data.cart?.id;
+
+                if (!cartId) {
+                    console.error(
+                        'Error: API response tidak memiliki cart.id. Respons:',
+                        response.data,
+                    );
+                    toast.error(
+                        'Gagal mendapatkan ID keranjang. Format respons API tidak valid.',
+                    );
+                    return;
+                }
+
+                console.log(
+                    'Produk berhasil ditambahkan atau diperbarui. Cart ID:',
+                    cartId,
+                );
+
+                // Asumsikan route() dan router dari Inertia.js tersedia secara global
+                const checkoutUrl = route('buyer.checkout.form');
+                console.log('Melanjutkan ke URL tujuan:', checkoutUrl);
+
+                // Mengarahkan ke halaman checkout dengan ID keranjang
+                router.get(
+                    checkoutUrl,
+                    {
+                        'cart_ids[]': [cartId],
+                    },
+                    {
+                        onSuccess: (redirectResponse) => {
+                            console.log(
+                                'Sukses: Redirect ke halaman form berhasil.',
+                                redirectResponse,
+                            );
+                        },
+                        onError: (errors) => {
+                            console.error('Error saat redirect:', errors);
+                            toast.error(
+                                'Terjadi kesalahan saat checkout. Cek konsol untuk detail.',
+                            );
+                        },
+                    },
+                );
+            })
+            .catch((error) => {
+                console.error(
+                    'Terjadi error saat menambahkan ke keranjang:',
+                    error,
+                );
+                const errorMessage =
+                    error.response?.data?.message ||
+                    'Terjadi kesalahan saat menambahkan produk ke keranjang.';
+                toast.error(errorMessage);
+            });
     };
 
     return (
@@ -316,7 +398,7 @@ Apakah produk ini masih tersedia?`;
                                 Tambah
                             </Button>
                             <Button
-                                onClick={handleTambahKeranjang}
+                                onClick={handleDirectCheckout}
                                 className="flex flex-1 items-center justify-center bg-secondary text-white hover:bg-secondaryemphasis"
                             >
                                 <Icon

@@ -1,5 +1,4 @@
 // resources/js/Components/Banner.jsx
-import { Icon } from '@iconify/react';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 
@@ -7,7 +6,7 @@ export default function Banner() {
     const [banner, setBanner] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
+    // const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         const fetchBanner = async () => {
@@ -25,11 +24,11 @@ export default function Banner() {
         fetchBanner();
     }, []);
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        // Implement search functionality here
-        console.log('Searching for:', searchQuery);
-    };
+    // const handleSearch = (e) => {
+    //     e.preventDefault();
+    //     // Implement search functionality here
+    //     console.log('Searching for:', searchQuery);
+    // };
 
     if (loading) return <div className="h-64 animate-pulse bg-gray-200"></div>;
     if (error)
@@ -55,8 +54,7 @@ export default function Banner() {
                                     Dapatkan produk terbaik dari kreativitas
                                     lokal Padalarang
                                 </p>
-
-                                {/* Search Bar */}
+                                {/* Search Bar
                                 <form
                                     onSubmit={handleSearch}
                                     className="relative mb-4"
@@ -80,7 +78,7 @@ export default function Banner() {
                                         />
                                         <h5 className="text-white">Cari</h5>
                                     </button>
-                                </form>
+                                </form> */}
                             </div>
                         </div>
                     </>
