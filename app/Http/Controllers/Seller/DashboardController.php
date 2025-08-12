@@ -23,40 +23,43 @@ class DashboardController extends Controller
         $user = Auth::user();
         $penjualId = optional($user->penjual)->id;
 
+        // Ambil total produk
         $totalProduk = Produk::where('penjual_id', $penjualId)->count();
 
+        // Ambil produk per kategori
         $produkPerKategori = Produk::where('penjual_id', $penjualId)
             ->with('kategori')
             ->get()
             ->groupBy('kategori.kategori')
             ->map(fn($group) => $group->count());
 
+        // Ambil semua item transaksi untuk penjual ini
         $transaksiItems = TransaksiItem::where('penjual_id', $penjualId)
             ->with(['transaksi', 'produk.kategori'])
             ->get();
 
+        // 📊 Pengelompokan dan penghitungan status transaksi
         $transaksiGroup = $transaksiItems->groupBy(fn($item) => $item->transaksi->status);
+
+        // Menghitung jumlah untuk setiap status baru
         $jumlahBelumDibayar = $transaksiGroup->get('belum bayar')?->count() ?? 0;
-        $jumlahSudahDibayar = $transaksiGroup->get('sudah bayar')?->count() ?? 0;
+        $jumlahMenungguDiterima = $transaksiGroup->get('menunggu diterima')?->count() ?? 0;
+        $jumlahTelahDiterima = $transaksiGroup->get('telah diterima')?->count() ?? 0;
         $jumlahDibatalkan = $transaksiGroup->get('dibatalkan')?->count() ?? 0;
 
-        // 📅 Statistik per bulan
+        // 📅 Statistik penjualan per bulan, hanya untuk transaksi 'telah diterima'
         $penjualanPerBulan = $transaksiItems
-            ->filter(fn($item) => $item->transaksi->status === 'sudah bayar')
-            ->groupBy(fn($item) => Carbon::parse($item->transaksi->created_at)->format('Y-m')) // misalnya "2025-06"
+            ->filter(fn($item) => $item->transaksi->status === 'telah diterima')
+            ->groupBy(fn($item) => Carbon::parse($item->transaksi->created_at)->format('Y-m'))
             ->map(fn($items, $key) => [
-                'bulan' => Carbon::parse($key . '-01')->isoFormat('MMMM Y'), // "Juni 2025"
+                'bulan' => Carbon::parse($key . '-01')->isoFormat('MMMM Y'),
                 'jumlah' => $items->count(),
             ])
             ->values();
-        // $penjualanPerBulan = $transaksiItems
-        //     ->filter(fn($item) => $item->transaksi->status === 'sudah bayar') // hanya yang berhasil
-        //     ->groupBy(fn($item) => Carbon::parse($item->transaksi->created_at)->format('M')) // contoh: Jan, Feb
-        //     ->map(fn($items) => $items->count());
 
-        // 🧩 Statistik kategori dari produk yang terbeli
+        // 🧩 Statistik kategori produk yang terbeli, hanya untuk transaksi 'telah diterima'
         $kategoriTerbeli = $transaksiItems
-            ->filter(fn($item) => $item->transaksi->status === 'sudah bayar')
+            ->filter(fn($item) => $item->transaksi->status === 'telah diterima')
             ->groupBy(fn($item) => optional($item->produk->kategori)->kategori ?? 'Tidak Diketahui')
             ->map(fn($items) => $items->count());
 
@@ -65,8 +68,10 @@ class DashboardController extends Controller
             'totalProduk' => $totalProduk,
             'produkPerKategori' => $produkPerKategori,
             'statusTransaksi' => [
+                // Mengirimkan semua status transaksi yang telah diperbarui
                 'belum_dibayar' => $jumlahBelumDibayar,
-                'sudah_dibayar' => $jumlahSudahDibayar,
+                'menunggu_diterima' => $jumlahMenungguDiterima,
+                'telah_diterima' => $jumlahTelahDiterima,
                 'dibatalkan' => $jumlahDibatalkan,
             ],
             'penjualanPerBulan' => $penjualanPerBulan,

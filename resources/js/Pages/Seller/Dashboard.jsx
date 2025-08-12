@@ -122,9 +122,17 @@ export default function Dashboard() {
                                                 icon="solar:check-circle-bold"
                                                 label="Sudah Dibayar"
                                                 value={
-                                                    statusTransaksi.sudah_dibayar
+                                                    statusTransaksi.menunggu_diterima
                                                 }
                                                 bg="bg-white dark:bg-green-700"
+                                            />
+                                            <StatCard
+                                                icon="solar:close-circle-bold"
+                                                label="Dibatalkan"
+                                                value={
+                                                    statusTransaksi.telah_diterima
+                                                }
+                                                bg="bg-white dark:bg-red-700"
                                             />
                                             <StatCard
                                                 icon="solar:close-circle-bold"

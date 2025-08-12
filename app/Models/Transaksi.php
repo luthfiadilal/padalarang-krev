@@ -70,10 +70,10 @@ class Transaksi extends Model
     }
 
     // Apakah pembayaran menggunakan COD?
-public function isCOD(): bool
-{
-    return strtolower($this->metode_pembayaran) === 'cod';
-}
+    public function isCOD(): bool
+    {
+        return strtolower($this->metode_pembayaran) === 'cod';
+    }
 
 // Apakah pembayaran menggunakan Midtrans?
     public function isMidtrans(): bool
